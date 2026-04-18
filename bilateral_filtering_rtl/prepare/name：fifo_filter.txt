@@ -1,0 +1,13 @@
+name：fifo_filter
+
+数据位宽
+数据深度
+非对称 FIFO 开关
+
+同步 FIFO 附加配置：full，empty，usedw[]，almost full，almost empty，Asynchronous clear，Synchronous clear
+
+读请求模式：标准同步模式，提前读（预读）模式
+存储块类型：M4K，（只能选这个）
+
+Would you like to register the output to maximize performance but use more area?
+Would you like to disable any circuitry protection?

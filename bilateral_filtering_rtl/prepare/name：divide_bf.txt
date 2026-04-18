@@ -1,0 +1,11 @@
+name：divide_bf
+
+Numerator input bus width
+Denominator input bus width
+Numerator Representation	
+Denominator Representation
+
+Do you want to pipeline the function?
+延迟clock设置
+Create an Asynchronous Clear input	
+Create a Clock Enable input
