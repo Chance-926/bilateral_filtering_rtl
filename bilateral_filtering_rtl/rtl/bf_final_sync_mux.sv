@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+//对于除法器，t0内被上级给出信号，t26开始对外呈现divide_quotient结果，t27y_out，de_out对外呈现数据
+
 module bf_final_sync_mux #(
     parameter DIV_LATENCY = 26  // 除法器 IP 的延迟拍数
 )(

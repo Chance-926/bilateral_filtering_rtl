@@ -1,4 +1,14 @@
 `timescale 1ns / 1ps
+//本模块使用的fifo为预读模式
+
+//数据核in_de再clk下降沿输入？
+//对外显示，相对于矩阵，
+//matrix_de提前拉高了一拍，out_active提前了一拍，坐标center_x提前了一拍，is_core提前用一拍，但相对对齐
+//对的，数据从0开始
+//冲刷区衔接没问题
+
+//！在p33输出最后一个值的clk内，matrix_de已经拉低了
+
 
 module bf_window_gen_5x5 #(
     parameter IMG_WIDTH  = 12'd1920,
@@ -28,6 +38,10 @@ module bf_window_gen_5x5 #(
     output wire        is_core      //该中心像素可以滤波时拉高
 ); 
 
+    wire is_flushing;
+    wire internal_de;
+    wire [7:0] internal_y;
+
     //======================================================================
     // 1. VSYNC 边沿检测与 FIFO 同步清零逻辑
     //======================================================================
@@ -44,28 +58,6 @@ module bf_window_gen_5x5 #(
     
     // 提取 VSYNC 上升沿作为清零信号 (包含一帧结束，新一帧开始的准备期)
     wire vsync_pos = vsync_d1 & ~vsync_d2; 
-
-    //======================================================================
-    // 末尾数据冲刷逻辑 
-    //======================================================================
-    //在每帧结束后，继续强制产生 (2*IMG_WIDTH + 2) 个时钟的移位使能，使卡在行缓存最后面的两行数据会被强行“挤”到窗口中心位p33
-    reg [12:0] flush_cnt;
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            flush_cnt <= 13'd0;
-        end else if (vsync_pos) begin
-            flush_cnt <= 13'd0;
-        end else if (de_in && (row_cnt == IMG_HEIGHT - 1'b1) && (col_cnt == IMG_WIDTH - 1'b1)) begin
-            // 帧输入结束的瞬间，触发冲刷计数器 (2行 + 2个像素)
-            flush_cnt <= (IMG_WIDTH * 2) + 2;
-        end else if (flush_cnt > 0) begin
-            flush_cnt <= flush_cnt - 1'b1;
-        end
-    end
-
-    wire is_flushing = (flush_cnt > 0);
-    wire internal_de = (de_in | is_flushing);  // 两段使能整合
-    wire [7:0] internal_y = de_in ? y_in : 8'd0;   // 两段输入整合
 
     //======================================================================
     // 2. 行列计数器 (追踪当前输入像素 y_in 的坐标)
@@ -91,6 +83,29 @@ module bf_window_gen_5x5 #(
     end
 
     //======================================================================
+    // 末尾数据冲刷逻辑 
+    //======================================================================
+    //在每帧结束后，继续强制产生 (2*IMG_WIDTH + 2) 个时钟的移位使能，使卡在行缓存最后面的两行数据会被强行“挤”到窗口中心位p33
+    reg [12:0] flush_cnt;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            flush_cnt <= 13'd0;
+        end else if (vsync_pos) begin
+            flush_cnt <= 13'd0;
+        end else if (de_in && (row_cnt == IMG_HEIGHT - 1'b1) && (col_cnt == IMG_WIDTH - 1'b1)) begin
+            // 帧输入结束的瞬间，触发冲刷计数器 (2行 + 2个像素)
+            flush_cnt <= (IMG_WIDTH * 2) + 3;
+        end else if (flush_cnt > 0) begin
+            flush_cnt <= flush_cnt - 1'b1;
+        end
+    end
+
+    assign is_flushing = (flush_cnt > 0);
+    assign internal_de = (de_in | is_flushing);  // 两段使能整合
+    assign internal_y = de_in ? y_in : 8'd0;   // 两段输入整合
+
+
+    //======================================================================
     // 3. 例化 4 个 FWFT FIFO 构建 Line Buffer
     //======================================================================
     wire [7:0] row4_data, row3_data, row2_data, row1_data; //row后的序号表示窗口中的row
@@ -104,39 +119,39 @@ module bf_window_gen_5x5 #(
 
     // 提示：请确保中科亿海微 FIFO IP 例化名和端口名与下方一致
     fifo_filter u_line_buf1 (
-        .clk   (clk),
-        .sclr  (vsync_pos), // 同步清零
-        .din   (internal_y),     
-        .wr_en (wr_en1),
-        .rd_en (rd_en1),
-        .dout  (row4_data)  
+        .clock (clk),         // 映射系统时钟
+        .sclr  (vsync_pos),   // 同步清零 (帧起始脉冲)
+        .data  (internal_y),  // 输入数据
+        .wrreq (wr_en1),      // 写请求 (Write Request)
+        .rdreq (rd_en1),      // 读请求 (Read Request)
+        .q     (row4_data)    // 输出数据
     );
 
     fifo_filter u_line_buf2 (
-        .clk   (clk),
+        .clock (clk),
         .sclr  (vsync_pos),
-        .din   (row4_data),
-        .wr_en (rd_en1),  // FWFT模式下，本级读就是下级写
-        .rd_en (rd_en2),
-        .dout  (row3_data)
+        .data  (row4_data),
+        .wrreq (rd_en1),      // FWFT模式下，本级读就是下级写
+        .rdreq (rd_en2),
+        .q     (row3_data)
     );
 
     fifo_filter u_line_buf3 (
-        .clk   (clk),
+        .clock (clk),
         .sclr  (vsync_pos),
-        .din   (row3_data),
-        .wr_en (rd_en2),
-        .rd_en (rd_en3),
-        .dout  (row2_data)
+        .data  (row3_data),
+        .wrreq (rd_en2),
+        .rdreq (rd_en3),
+        .q     (row2_data)
     );
 
     fifo_filter u_line_buf4 (
-        .clk   (clk),
+        .clock (clk),
         .sclr  (vsync_pos),
-        .din   (row2_data),
-        .wr_en (rd_en3),
-        .rd_en (rd_en4),
-        .dout  (row1_data)
+        .data  (row2_data),
+        .wrreq (rd_en3),
+        .rdreq (rd_en4),
+        .q     (row1_data)
     );
 
     //======================================================================

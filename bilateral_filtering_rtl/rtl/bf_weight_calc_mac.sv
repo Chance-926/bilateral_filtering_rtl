@@ -16,9 +16,10 @@ module bf_weight_calc_mac (
     input  logic        matrix_de,
     input  logic        is_core_area, // 矩阵中心的像素是否能滤波（透传）
 
-    // 输出给后级除法器的结果
+    // 输出给除法器的结果
     output logic [17:0] sum_weight,       // 权重总和 (除数)
     output logic [25:0] sum_pixel_weight, // 像素加权总和 (被除数)
+    // 输出给mux的结果
     output logic        mac_de,           // 乘加结果有效信号
     output logic        mac_is_core,      // 计算的矩阵的中心是否属于核心区
     output logic [7:0]  center_pixel_out  // 伴随输出的中心像素(备用，可用于边缘透传)   
@@ -44,7 +45,7 @@ module bf_weight_calc_mac (
     initial begin
         // 这里加载你用 Python 提前算好的 256 个权重值文件
         // 如果文件不存在，仿真时会有警告，但综合时可以填入默认值
-        $readmemh("range_weight.txt", range_weight_rom);
+        $readmemh("D:/AAA_Code/bilateral_filtering_rtl/prepare/test_range_weight.txt", range_weight_rom);
     end
 
     //======================================================================
