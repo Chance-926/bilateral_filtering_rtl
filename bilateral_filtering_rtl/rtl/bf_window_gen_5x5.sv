@@ -1,15 +1,6 @@
 `timescale 1ns / 1ps
 //本模块使用的fifo为预读模式
 
-//数据核in_de再clk下降沿输入？
-//对外显示，相对于矩阵，
-//matrix_de提前拉高了一拍，out_active提前了一拍，坐标center_x提前了一拍，is_core提前用一拍，但相对对齐
-//对的，数据从0开始
-//冲刷区衔接没问题
-
-//！在p33输出最后一个值的clk内，matrix_de已经拉低了
-
-
 module bf_window_gen_5x5 #(
     parameter IMG_WIDTH  = 12'd1920,
     parameter IMG_HEIGHT = 12'd1080
@@ -31,7 +22,6 @@ module bf_window_gen_5x5 #(
 
     // 同步信号与坐标输出 (严格对齐中心像素 p33)
     output wire        matrix_de,   //开始输出矩阵：窗口中心开始扫描第一个像素时拉高
-    output wire        matrix_vsync,
    
     output wire [11:0] center_x,    // 当前中心像素所在的列坐标 (0 ~ IMG_WIDTH-1)
     output wire [11:0] center_y,    // 当前中心像素所在的行坐标 (0 ~ IMG_HEIGHT-1)
@@ -233,7 +223,6 @@ module bf_window_gen_5x5 #(
     // 最终输出端口赋值
     //======================================================================
     assign matrix_de    = (internal_de && out_active); 
-    assign matrix_vsync = vsync_pos;
 
     assign center_x     = out_x;       // 给下游的坐标绝对纯净 (0~1919)
     assign center_y     = out_y;       // 给下游的坐标绝对纯净 (0~1079)

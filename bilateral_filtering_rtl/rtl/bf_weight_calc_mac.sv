@@ -43,9 +43,8 @@ module bf_weight_calc_mac (
     logic [7:0] range_weight_rom [0:255];
     
     initial begin
-        // 这里加载你用 Python 提前算好的 256 个权重值文件
-        // 如果文件不存在，仿真时会有警告，但综合时可以填入默认值
-        $readmemh("D:/AAA_Code/bilateral_filtering_rtl/prepare/test_range_weight.txt", range_weight_rom);
+        // 这里加载用 Python 提前算好的 256 个权重值文件
+        $readmemh("D:/AAA_Code/bilateral_filtering_rtl/prepare/range_weight.txt", range_weight_rom);
     end
 
     //======================================================================
@@ -61,7 +60,7 @@ module bf_weight_calc_mac (
     // 控制信号延迟移位寄存器 (总共延迟 6 拍)
     logic [5:0] de_shift;
     logic [5:0] is_core_shift;
-    logic [7:0] center_p_shift [0:5];//？
+    logic [7:0] center_p_shift [0:5];
 
     //======================================================================
     // 流水线核心逻辑
